@@ -1,0 +1,43 @@
+# Python virtual environments
+
+.venv/
+venv/
+env/
+
+# Python cache files
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Testing and coverage
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+test_output.txt
+
+# Environment variables and secrets
+
+.env
+.env.*
+!.env.example
+
+# BugPilot AI generated backups
+
+*.bugpilot_backup
+
+# IDE and editor settings
+
+.vscode/
+.idea/
+
+# Operating system files
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log
