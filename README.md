@@ -1,89 +1,152 @@
-# BugPilot AI — Autonomous Debugging Agent
+﻿# BugPilot AI
 
-A beginner-friendly prototype combining Python AST analysis, pytest-based verification, a custom BFS state-space planner, controlled repair candidates, rollback, and a Streamlit dashboard.
+**AI-Assisted Software Bug Diagnosis, Repair, and Verification**
 
-**Important limitation:** BugPilot fixes one bug at a time per run. It does NOT automatically fix an entire repository with multiple bugs in a single execution. Run repeatedly after each repair if more bugs remain.
+BugPilot AI is a project that analyzes software repositories, identifies potential bugs, proposes repairs, and verifies changes using available tests and compiler diagnostics.
+
+## Features
+
+- **Repository Analysis:** Inspect a project directory for source files and potential issues.
+- **Python Support:** Analyze Python repositories and use the existing debugging and repair workflow.
+- **C Language Support:** Discover C source files, run GCC diagnostics, and generate candidate repairs for supported bug patterns.
+- **Repair Verification:** Validate repair candidates and run available tests or compilation checks.
+- **State-Space Planning:** Track debugging stages and plan the repair workflow.
+- **Streamlit Dashboard:** Use the existing dashboard in `app.py`.
+- **Web Frontend:** Access the HTML interface and local API server in the `frontend` directory.
+- **Optional Ollama Integration:** Use a locally running Ollama model where supported by the implementation.
+
+## Project Structure
+
+```text
+bugpilot_ai_agent/
+├── agent/
+│   ├── analyzer.py
+│   ├── c_analyzer.py
+│   ├── c_repair.py
+│   ├── c_runner.py
+│   ├── compiler_config.py
+│   ├── language_detector.py
+│   ├── planner.py
+│   ├── repair.py
+│   └── runner.py
+├── frontend/
+│   ├── index.html
+│   └── server.py
+├── app.py
+├── test_c_support.py
+├── pytest.ini
+└── README.md
+```
+
+The exact files may vary as development continues.
 
 ## Requirements
-- Python 3.11 or 3.12
-- Internet is needed only to install Python dependencies; built-in repair rules work offline afterward.
-- Optional: Ollama and a local code model for LLM-assisted repair.
 
-## Windows setup (PowerShell)
+- Python 3.11 or a compatible Python version
+- pip
+- Git
+- GCC for C compilation and diagnostics
+- Streamlit for the dashboard
+- Ollama only if using the optional local-model integration
+
+## Installation
+
+Clone the repository and enter the project directory:
+
 ```powershell
-cd path\to\bugpilot_ai_agent
-py -3.11 -m venv .venv
+git clone https://github.com/Gondisuhas/AI-Project.git
+cd AI-Project
+```
+
+Create and activate a virtual environment on Windows:
+
+```powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
+```
+
+Install the project's dependencies if a `requirements.txt` file is present:
+
+```powershell
 pip install -r requirements.txt
-python -m pytest demo_buggy_project -q
+```
+
+If there is no dependency file, install the dependencies required by the modules you intend to use.
+
+## Configure GCC
+
+Check whether GCC is available:
+
+```powershell
+gcc --version
+```
+
+If GCC is installed but is not on your PATH, configure its executable path for the current PowerShell session:
+
+```powershell
+$env:BUGPILOT_GCC = "E:\ucrt64\bin\gcc.exe"
+```
+
+The compiler configuration must be imported by the relevant C modules for this setting to take effect.
+
+## Run the Streamlit Dashboard
+
+From the project root:
+
+```powershell
 streamlit run app.py
 ```
-If PowerShell blocks activation, use Command Prompt instead:
-```bat
-.venv\Scripts\activate.bat
+
+Open the local URL printed in the terminal.
+
+## Run the Web Frontend
+
+From the project root:
+
+```powershell
+python frontend/server.py
 ```
 
-## Linux / WSL setup
-```bash
-cd /path/to/bugpilot_ai_agent
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python -m pytest demo_buggy_project -q
-streamlit run app.py
+Open:
+
+http://localhost:8090/
+
+The frontend server exposes the `/api/analyze` endpoint. Use the repository path and options supported by the current frontend implementation.
+
+## Run Tests
+
+Run the test suite from the project root:
+
+```powershell
+python -m pytest -q
 ```
 
-## Demo
-The included `demo_buggy_project` intentionally fails because `average([])` raises `ZeroDivisionError`, while the test expects `ValueError`. The built-in repair rule adds explicit empty-input validation. Run the app, keep the default repository path, and click **Analyze and debug**.
+## How the Workflow Works
 
-## Optional Ollama
-1. Install Ollama from its official website and start it.
-2. Run `ollama pull qwen2.5-coder:7b` in a terminal.
-3. In the dashboard, enable the Ollama option.
+1. The user provides a repository path.
+2. BugPilot identifies the supported programming language and source files.
+3. The analyzer inspects the repository and reports potential problems.
+4. The planner tracks the debugging and repair stages.
+5. The repair module generates candidate fixes for supported bug patterns.
+6. The relevant verification process checks candidate code.
+7. Test or compilation results help determine whether the candidate succeeds.
 
-The current prototype calls the local Ollama HTTP endpoint. The built-in rules are still the primary fallback. This is not a general-purpose automatic repair system.
+## Current Limitations
 
-## What is genuinely implemented?
-- **State-space planning:** `agent/planner.py` represents debugging stages as immutable states and uses breadth-first search to find a valid action sequence.
-- **Program analysis:** `agent/analyzer.py` parses Python files with `ast` and reports functions, syntax errors, and simple suspicious patterns.
-- **Fault localization:** traceback paths receive a higher heuristic score than generic static patterns.
-- **Test-driven repair:** `agent/engine.py` runs a baseline suite, applies a candidate, reruns tests, and reverts failures.
-- **Dashboard:** `app.py` displays events, planner actions, test output, suspicious locations, and repair history.
+- Automatic repair is limited to supported patterns and is not guaranteed to fix every bug.
+- Compiler availability and configuration affect C analysis and verification.
+- Support for additional programming languages requires language-specific analysis and execution logic.
+- Running untrusted repositories or code can be dangerous. Use isolated environments for untrusted projects; a timeout alone is not a security sandbox.
+- Optional local-model features require the appropriate model and service configuration.
 
-## Important limitations
-- The planner currently plans a fixed set of abstract debugging stages. It is a real BFS search, but it does not yet optimize among many alternative repair plans.
-- Built-in repair patterns are narrow. LLM-generated code can be wrong.
-- A passing existing test suite does not prove a patch is correct.
-- `subprocess` plus a timeout is not a security sandbox. Use only trusted code. For untrusted repositories, run inside a properly configured disposable container/VM with restricted network, CPU, memory, filesystem, and privileges.
-- Make a Git commit or backup before allowing any tool to change files.
+## Repository
 
-## Suggested next upgrades
-1. Record repository snapshots and unified diffs for every attempt.
-2. Use coverage data to rank suspicious lines.
-3. Add multiple candidate repairs and cost-based search over candidate states.
-4. Add Docker-based isolation before supporting unknown repositories.
-5. Add a benchmark set and compare with a one-shot LLM baseline.
+GitHub: https://github.com/Gondisuhas/AI-Project
 
-## Architecture (Simple)
+Frontend source:
+- `frontend/index.html`
+- `frontend/server.py`
 
-```
-Repository Path
-    |
-    v
-[Detect Language] --> Python  -->  C
-    |                    |         |
-    v                    v         v
-Analyze (AST/GCC) --> Find Bugs --> Rank Suspicious
-    |                                 |
-    v                                 v
-Generate Repair --> Backup --> Apply Patch --> Verify
-    |                               |           |
-    +-------- [Failed? Restore] <---+           v
-                                     +--> PASS / FAIL
-```
+## Disclaimer
 
-- One repair per run (intentional — simple, safe)
-- For whole repo: run repeatedly after each fix
-- Python: ast + pytest | C: GCC diagnostics + compile
+BugPilot AI is a development project intended to assist with debugging. Always review proposed changes and verify them with appropriate tests before using them in production.
