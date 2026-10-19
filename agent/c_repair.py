@@ -5,8 +5,14 @@ import subprocess
 from pathlib import Path
 
 # Use the known GCC installation path
-GCC_PATH = r"E:\ucrt64\bin\gcc.exe"
+import os
+import shutil
 
+GCC_PATH = (
+    os.getenv("BUGPILOT_GCC")
+    or shutil.which("gcc")
+    or shutil.which("gcc.exe")
+)
 
 def validate_c_candidate(file_path: Path, source: str) -> bool:
     """
