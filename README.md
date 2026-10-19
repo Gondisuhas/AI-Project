@@ -2,6 +2,8 @@
 
 A beginner-friendly prototype combining Python AST analysis, pytest-based verification, a custom BFS state-space planner, controlled repair candidates, rollback, and a Streamlit dashboard.
 
+**Important limitation:** BugPilot fixes one bug at a time per run. It does NOT automatically fix an entire repository with multiple bugs in a single execution. Run repeatedly after each repair if more bugs remain.
+
 ## Requirements
 - Python 3.11 or 3.12
 - Internet is needed only to install Python dependencies; built-in repair rules work offline afterward.
@@ -63,3 +65,25 @@ The current prototype calls the local Ollama HTTP endpoint. The built-in rules a
 3. Add multiple candidate repairs and cost-based search over candidate states.
 4. Add Docker-based isolation before supporting unknown repositories.
 5. Add a benchmark set and compare with a one-shot LLM baseline.
+
+## Architecture (Simple)
+
+```
+Repository Path
+    |
+    v
+[Detect Language] --> Python  -->  C
+    |                    |         |
+    v                    v         v
+Analyze (AST/GCC) --> Find Bugs --> Rank Suspicious
+    |                                 |
+    v                                 v
+Generate Repair --> Backup --> Apply Patch --> Verify
+    |                               |           |
+    +-------- [Failed? Restore] <---+           v
+                                     +--> PASS / FAIL
+```
+
+- One repair per run (intentional — simple, safe)
+- For whole repo: run repeatedly after each fix
+- Python: ast + pytest | C: GCC diagnostics + compile

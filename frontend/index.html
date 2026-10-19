@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BugPilot AI — Professional Debugging Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f8fafc;--surface:#fff;--surface-2:#f1f5f9;--text:#0f172a;--text-secondary:#475569;--text-muted:#94a3b8;--primary:#2563eb;--primary-soft:#dbeafe;--success:#16a34a;--danger:#dc2626;--warn:#ca8a04;--border:#e2e8f0;--radius:16px;--shadow:0 1px 3px rgba(15,23,42,.08),0 4px 12px rgba(15,23,42,.05)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+.container{max-width:1140px;margin:0 auto;padding:40px 28px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;gap:16px;flex-wrap:wrap}
+.header-brand{display:flex;align-items:center;gap:14px}
+.icon-badge{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--primary),#60a5fa);display:grid;place-items:center;color:#fff;font-weight:800;font-size:1.2rem;box-shadow:0 4px 14px rgba(37,99,235,.25);flex-shrink:0}
+.header-brand h1{font-size:1.65rem;font-weight:800;letter-spacing:-0.035em;line-height:1.1;color:var(--text)}
+.header-brand .tagline{font-size:.82rem;color:var(--text-muted);margin-top:4px}
+.badge{font-family:"JetBrains Mono",monospace;font-size:.71rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-weight:500}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-bottom:32px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);transition:box-shadow .2s ease,transform .15s ease}
+.card:hover{box-shadow:0 10px 30px rgba(15,23,42,.10);transform:translateY(-1px)}
+.card h2{font-size:1.05rem;font-weight:700;margin-bottom:18px;color:var(--text);letter-spacing:-0.015em}
+.card h3{font-size:.92rem;font-weight:600;margin:14px 0 6px;color:var(--text-secondary)}
+.section-label{font-family:"JetBrains Mono",monospace;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:8px;font-weight:500}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group label{display:block;font-size:.78rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:.88rem;background:var(--surface-2);color:var(--text);transition:border-color .15s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary);background:#fff}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--primary),#3b82f6);color:#fff;font-weight:600;font-size:.9rem;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.25);transition:transform .1s,box-shadow .2s}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,99,235,.3)}
+.status-row{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap}
+.status-pill{font-family:"JetBrains Mono",monospace;font-size:.78rem;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);display:flex;align-items:center;gap:8px}
+.status-pill.ok{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+.status-pill.fail{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.status-pill.info{border-color:#bfdbfe;background:#eff6ff;color:#1e40af}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+.metric{padding:16px;background:linear-gradient(180deg,var(--surface-2),#fff);border-radius:12px;border:1px solid var(--border)}
+.metric .label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.metric .value{font-size:1.35rem;font-weight:700;color:var(--text);letter-spacing:-0.02em}
+.metric .sub{font-size:.78rem;color:var(--text-muted);margin-top:2px}
+.code-block{font-family:"JetBrains Mono",monospace;font-size:.82rem;background:#0b1220;color:#e2e8f0;padding:18px 20px;border-radius:12px;border:1px solid #334155;overflow-x:auto;line-height:1.65;margin-top:10px}
+.code-block .line-num{color:#64748b;user-select:none;display:inline-block;width:28px;text-align:right;margin-right:10px}
+.code-block .line-err{background:rgba(248,113,113,.15);color:#fecaca;border-left:2px solid var(--danger);padding-left:6px;margin-left:-6px}
+.table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:14px}
+.table th{font-weight:600;color:var(--text-secondary);text-align:left;padding:10px 8px;border-bottom:2px solid var(--border);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.table td{padding:10px 8px;border-bottom:1px solid var(--border);color:var(--text-secondary)}
+.table td:first-child{color:var(--text);font-weight:500}
+.table .tag{font-size:.7rem;padding:2px 6px;border-radius:6px;background:var(--primary-soft);color:var(--primary-deep);font-family:"JetBrains Mono",monospace;font-weight:500}
+.diagram-box{background:#fff;border:1.5px dashed #cbd5e1;border-radius:12px;padding:18px;margin-top:12px;font-family:"JetBrains Mono",monospace;font-size:.85rem;color:#334155;line-height:1.7}
+.diagram-box .arrow{color:var(--primary);font-weight:700}
+.callout{background:#eff6ff;border-left:4px solid var(--primary);padding:14px 16px;border-radius:8px;margin-top:14px;color:#334155;font-size:.84rem}
+.callout strong{color:var(--primary-deep)}
+.footer{padding:24px 28px;text-align:center;color:var(--text-muted);font-size:.78rem;border-top:1px solid var(--border);margin-top:32px;font-family:"Inter",sans-serif}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="header">
+<div class="header-brand">
+<div><h1>BugPilot AI <span style="font-weight:300;color:#64748b">— Debugging Dashboard</span></h1><div class="tagline">Multi-language debugging • Python + C • feature/c-language-support</div></div>
+</div>
+<div class="header-actions"><span class="badge">Python: PASS</span><span class="badge">C: UNRESOLVED</span><span class="badge">Tests: 6/6</span></div>
+</header>
+
+<section class="cards" style="grid-template-columns:1fr 1fr;">
+<div class="card">
+<div class="section-label">Configuration</div>
+<h2>Repository Settings</h2>
+<div class="form-row"><div class="form-group"><label for="repo">Repo Path</label><input id="repo" value="E:\Ai project\bugpilot_ai_agent\demo_c_project" readonly></div><div class="form-group"><label for="lang">Language</label><select id="lang"><option>C (selected)</option><option>Python</option><option>Auto-detect</option></select></div></div>
+<div class="form-group" style="margin-top:8px"><label>Max Repair Attempts</label><input type="range" min="1" max="5" value="3" style="width:100%;accent-color:var(--primary)"></div>
+<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn-primary" id="runBtn" onclick="runAnalysis()">Analyze &amp; Debug</button><span style="font-size:.78rem;color:var(--text-muted)" id="gccNote">GCC: E:\ucrt64\bin\gcc.exe</span></div>
+<div id="runMsg" style="font-size:.82rem;margin-top:10px;display:none"></div>
+</div>
+<div class="card">
+<div class="section-label">Agent Status</div>
+<h2>Last Verification</h2>
+<div class="status-row"><div class="status-pill fail"><span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block"></span> Final: FAILED</div><div class="status-pill info"><span style="width:8px;height:8px;border-radius:50%;background:var(--primary);display:inline-block"></span> Lang: C</div><div class="status-pill ok"><span style="width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block"></span> Files: 3</div></div>
+<div class="metrics"><div class="metric"><div class="label">Repair Attempts</div><div class="value">0</div></div><div class="metric"><div class="label">Syntax Errors</div><div class="value" style="color:var(--danger)">3</div></div><div class="metric"><div class="label">Compilation</div><div class="value" style="color:var(--danger)">FAILED</div></div></div>
+<p style="font-size:.82rem;color:var(--text-muted);margin-top:8px">GCC exit-code approach (MSYS2 limitation). Python demo: PASS.</p>
+</div>
+</section>
+
+<section class="cards" style="grid-template-columns:1fr;">
+<div class="card">
+<div class="section-label">Verification File</div>
+<h2>Error File — <code style="font-family:'JetBrains Mono',monospace;font-weight:400;color:var(--primary-deep)">syntax_error.c</code></h2>
+<p style="font-size:.85rem;color:var(--text-muted);margin-bottom:10px"><strong>Path:</strong> <code>demo_c_project/syntax_error.c</code> — line 7 missing semicolon.</p>
+<div class="code-block">
+<div><span class="line-num">1</span> <span style="color:#94a3b8">// C program with syntax error (missing semicolon)</span></div>
+<div><span class="line-num">2</span> <span style="color:#f472b6">#include</span> <span style="color:#86efac">&lt;stdio.h&gt;</span></div>
+<div><span class="line-num">3</span></div>
+<div><span class="line-num">4</span> <span style="color:#f472b6">int</span> <span style="color:#fcd34d">multiply</span>(<span style="color:#f472b6">int</span> a, <span style="color:#f472b6">int</span> b) {</div>
+<div><span class="line-num">5</span>     <span style="color:#f472b6">return</span> a <span style="color:#e879f9">*</span> b</div>
+<div><span class="line-num line-err" style="background:rgba(248,113,113,.12);border-left:3px solid var(--danger);padding-left:6px;margin-left:-6px;color:#fecaca"><strong>6</strong> <span style="color:#94a3b8">}</span> <span style="font-size:.7rem;color:#f87171">← ERROR: missing ';'</span></div>
+<div><span class="line-num">7</span>     <span style="color:#f472b6">printf</span>(<span style="color:#86efac">"Result: %d\n"</span>, <span style="color:#fcd34d">multiply</span>(4, 7));</div>
+<div><span class="line-num">8</span>     <span style="color:#f472b6">return</span> 0;</div>
+<div><span class="line-num">9</span> }</div>
+</div>
+<p style="font-size:.8rem;color:var(--text-muted);margin-top:8px">Click the highlighted error line to see details. GCC detects via exit code (MSYS2).</p>
+</div>
+</section>
+
+<section class="card" id="architecture">
+<div class="section-label">Workflow</div>
+<h2>Architecture — Simple &amp; Safe (Verified 2x)</h2>
+<p style="font-size:.9rem;color:var(--text-secondary);margin-bottom:14px">One repair per run. Prevents cascading failures.</p>
+<div class="diagram-box">
+<strong>Repo Path</strong> <span style="color:var(--primary);font-weight:700">→</span> <strong>[Detect Language]</strong> <span style="color:var(--text-muted)">Python / C</span><br>
+<span style="padding-left:20px"></span><span style="color:var(--primary);font-weight:700">↓</span> <strong>[Analyze]</strong> (AST / GCC)<br>
+<span style="padding-left:20px"></span><span style="color:var(--primary);font-weight:700">↓</span> <strong>[Find Bugs]</strong> → <strong>[Rank Suspicious]</strong><br>
+<span style="padding-left:20px"></span><span style="color:var(--primary);font-weight:700">↓</span> <strong>[Generate Repair]</strong> → <strong>[Backup .bugpilot_backup]</strong> → <strong>[Apply]</strong><br>
+<span style="padding-left:20px"></span><span style="color:var(--primary);font-weight:700">↓</span> <strong>[Verify]</strong> (pytest / GCC) → <strong>[PASS / FAIL]</strong><br>
+<span style="padding-left:20px"></span><span style="color:var(--primary);font-weight:700">↓</span> <strong>[FAIL]</strong> → <strong>[Restore Backup]</strong>
+</div>
+</section>
+
+<section class="cards">
+<div class="card">
+<div class="section-label">Comparison</div>
+<h2>Python vs C</h2>
+<table class="table">
+<thead><tr><th>Feature</th><th>Python</th><th>C</th></tr></thead>
+<tbody>
+<tr><td>Discovery</td><td><span class="tag">AST (.py)</span></td><td><span class="tag">GCC (.c/.h)</span></td></tr>
+<tr><td>Verification</td><td><span class="tag">pytest</span></td><td><span class="tag">gcc compile</span></td></tr>
+<tr><td>Repair rules</td><td><span class="tag">Built-in + Ollama</span></td><td><span class="tag">3 conservative</span></td></tr>
+<tr><td>Backup</td><td><span class="tag">.bugpilot_backup</span></td><td><span class="tag">.bugpilot_backup</span></td></tr>
+<tr><td>Dashboard</td><td><span class="tag">Files / Functions</span></td><td><span class="tag">Files / Diagnostics</span></td></tr>
+</tbody>
+</table>
+</div>
+<div class="card">
+<div class="section-label">Limitations</div>
+<h2>Documented Constraints</h2>
+<ul style="font-size:.85rem;color:var(--text-secondary);padding-left:18px;line-height:1.7">
+<li><strong>Not full-repo automatic:</strong> one repair per run.</li>
+<li><strong>GCC diagnostics:</strong> MSYS2 GCC output not captured; exit-code workaround.</li>
+<li><strong>Conservative C rules:</strong> 3 patterns only.</li>
+<li><strong>Not a sandbox:</strong> runs with your permissions.</li>
+</ul>
+<div class="callout"><strong>Whole repo fix:</strong> Run → fix one → verify → run again on updated repo. Repeat until clean.</div>
+</div>
+</section>
+
+<footer>BugPilot AI — feature/c-language-support • Professional Frontend • Verified 2 passes</footer>
+</div>
+<script>
+function runAnalysis() {
+  const btn = document.getElementById('runBtn');
+  const msg = document.getElementById('runMsg');
+  btn.textContent = 'Running...';
+  btn.disabled = true;
+  msg.style.display = 'block';
+  msg.style.color = 'var(--primary-deep)';
+  msg.textContent = 'Connecting to agent at http://localhost:8090/api/analyze ...';
+  fetch('http://localhost:8090/api/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({repo: document.getElementById('repo').value, language: document.getElementById('lang').value, attempts: 3, use_ollama: false})
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.textContent = 'Analyze & Debug';
+    btn.disabled = false;
+    if (data.error) { msg.style.color = 'var(--danger)'; msg.textContent = 'Error: ' + data.error; }
+    else {
+      msg.style.color = 'var(--success)';
+      const res = data.result || {};
+      msg.innerHTML = '<strong>Done.</strong> Status: <span style="font-weight:700">' + (res.status || 'N/A') + '</span> | Files: ' + (res.analysis ? (res.analysis.files || []).length : '?') + ' | Language: ' + (res.language || res.status);
+      document.getElementById('results').scrollIntoView({behavior:'smooth'});
+    }
+  })
+  .catch(e => {
+    btn.textContent = 'Analyze & Debug';
+    btn.disabled = false;
+    msg.style.color = 'var(--danger)';
+    msg.textContent = 'Failed to connect (is server running on :8090?). See console.';
+    console.error('Fetch error:', e);
+  });
+}
+</script>
+</body>
+</html>

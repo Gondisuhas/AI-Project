@@ -6,15 +6,28 @@ import shutil
 from dataclasses import replace
 from pathlib import Path
 
-from .analyzer import analyze_repository, rank_suspicious
+# Python imports
+from .analyzer import analyze_repository as analyze_python_repository
+from .analyzer import rank_suspicious as rank_suspicious_python
+from .runner import run_tests as run_python_tests
+from .repair import built_in_candidates as built_in_python_candidates
+from .repair import ollama_candidate as ollama_python_candidate
+
+# C imports
+from .c_analyzer import analyze_c_repository, rank_suspicious_c
+from .c_runner import compile_c_repository
+from .c_repair import built_in_c_candidates, validate_c_candidate, ollama_c_candidate
+
+# Language detection
+from .language_detector import detect_language
+
+# Planner imports
 from .planner import (
     DebugState,
     bfs_plan,
     plan_next_action,
     verification_transition,
 )
-from .runner import run_tests
-from .repair import built_in_candidates, ollama_candidate
 
 
 def run_agent(
@@ -22,8 +35,12 @@ def run_agent(
     max_attempts: int = 3,
     use_ollama: bool = False,
     progress=None,
+    language: str | None = None,
 ) -> dict:
-    """Debug a repository using planned actions and test-driven verification."""
+    """Debug a repository using planned actions and test-driven verification.
+
+    Supports Python and C repositories. Language is auto-detected if not specified.
+    """
 
     root = Path(root).resolve()
 
@@ -37,6 +54,27 @@ def run_agent(
         log.append(message)
         if progress:
             progress(message)
+
+    # Detect language if not explicitly specified
+    if language is None:
+        language = detect_language(root)
+        say(f"Detected language: {language}")
+    else:
+        say(f"Using specified language: {language}")
+
+    if language not in ("python", "c"):
+        return {
+            "status": "UNSUPPORTED_LANGUAGE",
+            "language": language,
+            "analysis": {},
+            "baseline": None,
+            "final": None,
+            "suspicious": [],
+            "attempts": [],
+            "log": log + [f"Language '{language}' is not yet supported. Supported: python, c"],
+            "plan": [],
+            "final_state": DebugState(),
+        }
 
     state = DebugState()
     initial_plan = bfs_plan(state)
@@ -57,6 +95,7 @@ def run_agent(
     def result(status):
         return {
             "status": status,
+            "language": language,
             "analysis": analysis,
             "baseline": baseline,
             "final": final,
@@ -73,6 +112,18 @@ def run_agent(
             path.name.startswith("test_")
             or any(part.casefold() == "tests" for part in relative_parts)
         )
+
+    def validate_candidate(path: Path, candidate: str) -> bool:
+        """Validate a candidate based on the language."""
+        if language == "python":
+            try:
+                ast.parse(candidate, filename=str(path))
+                return True
+            except SyntaxError:
+                return False
+        elif language == "c":
+            return validate_c_candidate(path, candidate)
+        return False
 
     def build_candidates():
         """Build and rank candidate patches using current evidence."""
@@ -109,15 +160,21 @@ def run_agent(
 
             file_candidates = []
 
+            # Get language-specific built-in candidates
             try:
-                for label, candidate in built_in_candidates(path, source):
+                if language == "python":
+                    candidates = built_in_python_candidates(path, source)
+                elif language == "c":
+                    candidates = built_in_c_candidates(path, source)
+                else:
+                    candidates = []
+
+                for label, candidate in candidates:
                     if not candidate or candidate == source:
                         continue
 
-                    try:
-                        ast.parse(candidate, filename=str(path))
-                    except SyntaxError:
-                        say(f"Discarded invalid Python candidate for {relative_file}.")
+                    if not validate_candidate(path, candidate):
+                        say(f"Discarded invalid {language} candidate for {relative_file}.")
                         continue
 
                     file_candidates.append(
@@ -130,26 +187,35 @@ def run_agent(
             # Ollama is used for this file only when built-in rules find no fix.
             if use_ollama and not file_candidates:
                 try:
-                    candidate = ollama_candidate(
-                        path,
-                        source,
-                        baseline.get("output", ""),
-                    )
+                    if language == "python":
+                        candidate = ollama_python_candidate(
+                            path,
+                            source,
+                            baseline.get("output", ""),
+                        )
+                    elif language == "c":
+                        candidate = ollama_c_candidate(
+                            path,
+                            source,
+                            baseline.get("output", ""),
+                        )
+                    else:
+                        candidate = None
 
                     if candidate and candidate != source:
-                        ast.parse(candidate, filename=str(path))
-                        file_candidates.append(
-                            (
-                                path,
-                                "LLM-generated candidate",
-                                candidate,
-                                "Ollama",
-                                file_score,
+                        if validate_candidate(path, candidate):
+                            file_candidates.append(
+                                (
+                                    path,
+                                    "LLM-generated candidate",
+                                    candidate,
+                                    "Ollama",
+                                    file_score,
+                                )
                             )
-                        )
+                        else:
+                            say(f"Discarded invalid Ollama candidate for {relative_file}.")
 
-                except SyntaxError:
-                    say(f"Discarded invalid Ollama candidate for {relative_file}.")
                 except Exception as exc:
                     say(f"Ollama failed for {relative_file}: {exc}")
 
@@ -169,41 +235,75 @@ def run_agent(
         say(f"Planner action: {action}")
 
         if action == "analyze_repository":
-            say("Analyzing repository with Python AST...")
-            analysis = analyze_repository(root)
+            if language == "python":
+                say("Analyzing repository with Python AST...")
+                analysis = analyze_python_repository(root)
 
-            say(
-                f"Found {len(analysis['files'])} Python files and "
-                f"{len(analysis['functions'])} functions."
-            )
-
-            if analysis.get("syntax_errors"):
                 say(
-                    f"Warning: found {len(analysis['syntax_errors'])} "
-                    "syntax error(s)."
+                    f"Found {len(analysis['files'])} Python files and "
+                    f"{len(analysis['functions'])} functions."
                 )
+
+                if analysis.get("syntax_errors"):
+                    say(
+                        f"Warning: found {len(analysis['syntax_errors'])} "
+                        "syntax error(s)."
+                    )
+
+            elif language == "c":
+                say("Analyzing repository with GCC diagnostics...")
+                analysis = analyze_c_repository(root)
+
+                say(
+                    f"Found {len(analysis['files'])} C files."
+                )
+
+                if analysis.get("syntax_errors"):
+                    say(
+                        f"Found {len(analysis['syntax_errors'])} "
+                        "compiler error(s)."
+                    )
 
             state = replace(state, analyzed=True)
 
         elif action == "localize_fault":
-            say("Running baseline test suite...")
-            baseline = run_tests(root)
+            say("Running baseline verification...")
 
-            say(
-                "Baseline tests: "
-                + ("PASS" if baseline["passed"] else "FAIL")
-            )
+            if language == "python":
+                baseline = run_python_tests(root)
+                say(
+                    "Baseline tests: "
+                    + ("PASS" if baseline["passed"] else "FAIL")
+                )
 
-            if baseline["passed"]:
-                say("No reproducible test failure was found.")
-                final = baseline
-                return result("NO_REPRODUCIBLE_FAILURE")
+                if baseline["passed"]:
+                    say("No reproducible test failure was found.")
+                    final = baseline
+                    return result("NO_REPRODUCIBLE_FAILURE")
 
-            suspicious = rank_suspicious(
-                root,
-                analysis,
-                baseline.get("output", ""),
-            )
+                suspicious = rank_suspicious_python(
+                    root,
+                    analysis,
+                    baseline.get("output", ""),
+                )
+
+            elif language == "c":
+                baseline = compile_c_repository(root)
+                say(
+                    "Baseline compilation: "
+                    + ("SUCCESS" if baseline.get("compiled", False) else "FAILED")
+                )
+
+                if baseline.get("compiled", False):
+                    say("C code compiles successfully. No syntax errors detected.")
+                    final = baseline
+                    return result("NO_REPRODUCIBLE_FAILURE")
+
+                suspicious = rank_suspicious_c(
+                    root,
+                    analysis,
+                    baseline.get("output", ""),
+                )
 
             say(f"Ranked {len(suspicious)} suspicious location(s).")
             state = replace(state, localized=True)
@@ -244,7 +344,9 @@ def run_agent(
             backup = path.with_suffix(path.suffix + ".bugpilot_backup")
 
             try:
-                ast.parse(candidate, filename=str(path))
+                if not validate_candidate(path, candidate):
+                    raise ValueError("Candidate validation failed")
+
                 shutil.copy2(path, backup)
                 path.write_text(candidate, encoding="utf-8")
 
@@ -297,21 +399,29 @@ def run_agent(
             path = current_candidate[0]
             record = attempts[-1]
 
-            say("Running verification tests...")
-            test_result = run_tests(root)
+            say("Running verification...")
 
-            record["passed"] = test_result["passed"]
+            if language == "python":
+                test_result = run_python_tests(root)
+                passed = test_result["passed"]
+            elif language == "c":
+                test_result = compile_c_repository(root)
+                passed = test_result.get("compiled", False)
+            else:
+                passed = False
+
+            record["passed"] = passed
             record["test_output"] = test_result.get("output", "")
 
-            if test_result["passed"]:
-                record["decision"] = "accepted: test suite passed"
+            if passed:
+                record["decision"] = "accepted: verification passed"
                 final = test_result
                 state = verification_transition(state, passed=True)
 
                 say("Verification passed. Patch retained.")
                 return result("REPAIRED_TESTS_PASS")
 
-            record["decision"] = "rejected: tests failed; reverted"
+            record["decision"] = "rejected: verification failed; reverted"
             say("Verification failed. Restoring original source.")
 
             try:
@@ -338,12 +448,23 @@ def run_agent(
             say(f"Unsupported planner action: {action}")
             break
 
-    # A failed or exhausted repair cycle must finish with a final test run.
-    say("Running final verification tests...")
-    final = run_tests(root)
+    # After a repair passes or fails, we can continue to try more fixes.
+    # Simple loop: try up to max_attempts, then stop.
+    # Note: This still fixes ONE bug at a time, not all simultaneously.
+    # For full repo repair, run repeatedly on updated repo.
+    say("Running final verification...")
 
-    if final["passed"]:
-        say("Final tests passed.")
+    if language == "python":
+        final = run_python_tests(root)
+        passed = final["passed"]
+    elif language == "c":
+        final = compile_c_repository(root)
+        passed = final.get("compiled", False)
+    else:
+        passed = False
+
+    if passed:
+        say("Final verification passed.")
         return result("TESTS_PASS_AFTER_ATTEMPTS")
 
     say("Agent stopped without a verified repair.")
