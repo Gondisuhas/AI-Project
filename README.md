@@ -56,10 +56,4 @@ The current prototype calls the local Ollama HTTP endpoint. The built-in rules a
 - A passing existing test suite does not prove a patch is correct.
 - `subprocess` plus a timeout is not a security sandbox. Use only trusted code. For untrusted repositories, run inside a properly configured disposable container/VM with restricted network, CPU, memory, filesystem, and privileges.
 - Make a Git commit or backup before allowing any tool to change files.
-
-## Suggested next upgrades
-1. Record repository snapshots and unified diffs for every attempt.
-2. Use coverage data to rank suspicious lines.
-3. Add multiple candidate repairs and cost-based search over candidate states.
-4. Add Docker-based isolation before supporting unknown repositories.
-5. Add a benchmark set and compare with a one-shot LLM baseline.
+- 
